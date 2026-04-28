@@ -3,75 +3,52 @@ import ipywidgets as widgets
 
 
 def render_blocks(chapter_id, blocks, progress_store):
-    start_index = progress_store.get_block_index(chapter_id)
+    """
+    NEW BEHAVIOR:
+    - render ALL blocks immediately
+    - NO blocking
+    - user can answer in any order
+    """
 
-    def advance(i):
-        progress_store.set_block_index(chapter_id, i + 1)
-        run_block(i + 1)
-
-    def run_block(i):
-        if i >= len(blocks):
-            progress_store.mark_chapter_complete(chapter_id)
-            display(Markdown(f"## ✅ Chapter completed: `{chapter_id}`"))
-            return
-
-        block = blocks[i]
+    for block in blocks:
         block_type = block["type"]
         content = block["content"]
 
         if block_type == "markdown":
             display(Markdown(content))
-            progress_store.set_block_index(chapter_id, i + 1)
-            run_block(i + 1)
 
         elif block_type == "video":
             render_video(content)
-            progress_store.set_block_index(chapter_id, i + 1)
-            run_block(i + 1)
 
         elif block_type == "quiz":
-            render_quiz(
-                content,
-                on_success=lambda points: (
-                    progress_store.add_score(chapter_id, points),
-                    advance(i)
-                )
-            )
+            render_quiz(content, chapter_id, progress_store)
 
         elif block_type == "reflect":
-            render_reflect(
-                content,
-                on_success=lambda answer, points: (
-                    progress_store.save_reflection(
-                        chapter_id,
-                        content.get("question", ""),
-                        answer
-                    ),
-                    progress_store.add_score(chapter_id, points),
-                    advance(i)
-                )
-            )
+            render_reflect(content, chapter_id, progress_store)
 
         else:
             display(Markdown(f"Unsupported block type: `{block_type}`"))
-            advance(i)
 
-    run_block(start_index)
+    # mark complete immediately (you chose no blocking)
+    progress_store.mark_chapter_complete(chapter_id)
+    display(Markdown(f"## ✅ Chapter loaded: `{chapter_id}`"))
 
 
+# ======================
+# VIDEO
+# ======================
 def render_video(data):
     url = data.get("url", "")
-    video_id = extract_youtube_id(url)
+    vid = extract_youtube_id(url)
 
-    if not video_id:
+    if not vid:
         display(Markdown(f"[Open video]({url})"))
         return
 
     display(HTML(f"""
-    <div style="margin: 16px 0;">
+    <div style="margin:20px 0;">
       <iframe width="720" height="405"
-        src="https://www.youtube.com/embed/{video_id}"
-        title="YouTube video player"
+        src="https://www.youtube.com/embed/{vid}"
         frameborder="0"
         allowfullscreen>
       </iframe>
@@ -87,75 +64,117 @@ def extract_youtube_id(url):
     return None
 
 
-def render_quiz(q, on_success):
-    out = widgets.Output()
-
+# ======================
+# QUIZ (FIXED UI)
+# ======================
+def render_quiz(q, chapter_id, progress_store):
     display(Markdown(f"### Quiz\n**{q.get('question', '')}**"))
 
-    q_type = q.get("type", "mcq")
+    out = widgets.Output()
+
     points = int(q.get("points", 1))
+    q_type = q.get("type", "mcq")
+
+    # FIX: force clean layout
+    layout = widgets.Layout(width="100%")
 
     if q_type == "mcq":
-        answer_widget = widgets.RadioButtons(options=q.get("options", []))
+        # FIX: wrap text nicely
+        options = [(opt, opt) for opt in q.get("options", [])]
+
+        answer_widget = widgets.RadioButtons(
+            options=options,
+            layout=layout,
+            style={'description_width': 'initial'}
+        )
+
     elif q_type == "text":
-        answer_widget = widgets.Text(placeholder="Type your answer")
+        answer_widget = widgets.Text(
+            placeholder="Type your answer",
+            layout=layout
+        )
+
     else:
         display(Markdown(f"Unsupported quiz type: `{q_type}`"))
         return
 
-    button = widgets.Button(description="Submit", button_style="success")
+    button = widgets.Button(
+        description="Submit",
+        button_style="success",
+        layout=widgets.Layout(width="200px")
+    )
 
     def check(_):
         with out:
             clear_output()
 
-            user_answer = answer_widget.value
-            correct_answer = q.get("answer", "")
+            user = answer_widget.value
+            correct = q.get("answer", "")
 
             if q_type == "text":
-                user_answer = user_answer.strip()
-                correct_answer = str(correct_answer).strip()
+                user = user.strip()
+                correct = str(correct).strip()
 
                 if str(q.get("case_sensitive", "true")).lower() == "false":
-                    user_answer = user_answer.lower()
-                    correct_answer = correct_answer.lower()
+                    user = user.lower()
+                    correct = correct.lower()
 
-            if user_answer == correct_answer:
-                print(f"✅ Correct (+{points} point)")
-                on_success(points)
+            if user == correct:
+                print(f"✅ Correct (+{points})")
+                progress_store.add_score(chapter_id, points)
             else:
                 print("❌ Not yet. Try again.")
 
     button.on_click(check)
-    display(answer_widget, button, out)
+
+    display(answer_widget)
+    display(button)
+    display(out)
 
 
-def render_reflect(r, on_success):
+# ======================
+# REFLECTION (FIXED UX)
+# ======================
+def render_reflect(r, chapter_id, progress_store):
+    display(Markdown(f"### 💡 Reflection\n**{r.get('question', '')}**"))
+
     out = widgets.Output()
-
-    question = r.get("question", "")
-    min_words = int(r.get("min_words", 20))
-    points = int(r.get("points", 1))
-
-    display(Markdown(f"### Reflection\n**{question}**"))
 
     text_area = widgets.Textarea(
         placeholder="Write your response here...",
-        layout=widgets.Layout(width="100%", height="140px")
+        layout=widgets.Layout(width="100%", height="150px")
     )
-    button = widgets.Button(description="Submit reflection", button_style="info")
+
+    button = widgets.Button(
+        description="Submit reflection",
+        button_style="info"
+    )
+
+    min_words = int(r.get("min_words", 20))
+    points = int(r.get("points", 1))
 
     def check(_):
         with out:
             clear_output()
-            answer = text_area.value.strip()
-            word_count = len(answer.split())
 
-            if word_count >= min_words:
-                print(f"✅ Reflection submitted ({word_count} words, +{points} point)")
-                on_success(answer, points)
+            answer = text_area.value.strip()
+            wc = len(answer.split())
+
+            if wc >= min_words:
+                print(f"✅ Saved ({wc} words, +{points})")
+
+                progress_store.save_reflection(
+                    chapter_id,
+                    r.get("question", ""),
+                    answer
+                )
+                progress_store.add_score(chapter_id, points)
+
             else:
-                print(f"❌ Please write at least {min_words} words. Current: {word_count}")
+                print(f"❌ Need at least {min_words} words (now {wc})")
 
     button.on_click(check)
-    display(text_area, button, out)
+
+    display(text_area)
+    display(button)
+    display(out)
