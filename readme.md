@@ -1,4 +1,5 @@
 
+
 # Trainbase
 
 **Trainbase turns a GitHub repo or local folder into an interactive course inside Colab/Jupyter.**
@@ -180,7 +181,7 @@ points: 1
 url: https://youtu.be/DH7REvnQ1y4
 ````
 
-````
+
 
 Trainbase will render the video inside the notebook.
 
@@ -200,7 +201,6 @@ answer: To learn directly from customers
 points: 1
 ````
 
-````
 
 The learner must answer correctly before moving forward.
 
@@ -216,3 +216,171 @@ answer: def
 case_sensitive: false
 points: 1
 ````
+
+---
+
+### 4. Reflection Prompt
+
+```markdown
+```reflect
+question: Describe one thing you would test with customers this week.
+min_words: 20
+points: 1
+````
+
+Reflection prompts are checked by word count, not by correctness.
+
+---
+
+## Using a Local Course Folder
+
+Trainbase can also load a course from your machine.
+
+```python
+from trainbase import learn
+
+course = learn("D:/courses/startup-course")
+````
+
+On Mac/Linux/Colab:
+
+```python
+course = learn("/content/startup-course")
+```
+
+This is useful when developing a course before uploading it to GitHub.
+
+---
+
+## Using GitHub
+
+For a public GitHub course repo:
+
+```python
+course = learn("https://github.com/yourname/startup-course")
+```
+
+Trainbase will read:
+
+```text
+https://raw.githubusercontent.com/yourname/startup-course/main/course.yaml
+```
+
+and then load chapter Markdown files from the same repo.
+
+---
+
+## GitLab and Internal Git
+
+Trainbase aims to support GitLab and internal Git repositories.
+
+Planned usage:
+
+```python
+course = learn("https://gitlab.company.com/team/startup-course")
+```
+
+For private GitLab repositories:
+
+```python
+course = learn(
+    "https://gitlab.company.com/team/startup-course",
+    token="YOUR_ACCESS_TOKEN"
+)
+```
+
+GitLab support is planned after GitHub public and local folder support.
+
+---
+
+## Progress Tracking
+
+Trainbase saves learner progress locally.
+
+Default:
+
+```text
+trainbase_progress.json
+```
+
+You can customize the progress path:
+
+```python
+course = learn(
+    "https://github.com/yourname/startup-course",
+    progress_path="my_progress.json"
+)
+```
+
+In Colab, you can save progress to Google Drive:
+
+```python
+course = learn(
+    "https://github.com/yourname/startup-course",
+    progress_path="/content/drive/MyDrive/trainbase_progress.json"
+)
+```
+
+---
+
+## Philosophy
+
+Trainbase is intentionally lightweight.
+
+It is for:
+
+* self-paced learning
+* workshops
+* founder training
+* internal bootcamps
+* classroom demos
+* AI-generated learning modules
+
+It is not for:
+
+* secure exams
+* anti-cheating systems
+* high-stakes certification
+* full LMS replacement
+
+---
+
+## Development Roadmap
+
+### v0.1
+
+* Load course from public GitHub repo
+* Load course from local folder
+* Render Markdown
+* Render YouTube videos
+* Render multiple-choice quiz
+* Render text quiz
+* Render reflection prompts
+* Save local progress
+* Generate simple certificate
+
+### v0.2
+
+* GitLab support
+* Private repo token support
+* Google Drive progress helper
+* Score summary
+* Better agenda UI
+* Multiple-answer quiz
+
+### v0.3
+
+* PDF block
+* Code exercise block
+* Image/audio blocks
+* Export certificate as HTML/PDF
+
+---
+
+## License
+
+MIT License.
+
+````
+
+---
